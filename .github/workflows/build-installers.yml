@@ -28,6 +28,9 @@ jobs:
           python -m PyInstaller --onefile --noconsole `
             --icon Tools~/livecollab_icon.ico `
             --name LiveCollabHost Tools~/livecollab_host.py
+          python -m PyInstaller --onefile --windowed `
+            --icon Tools~/livecollab_icon.ico `
+            --name LiveCollabManager Tools~/livecollab_manager.py
 
       - name: Stage payload
         run: python Tools~/stage_installer.py
