@@ -60,7 +60,7 @@ against the last known state, so only what changed travels over the wire.
 
 ### Standalone host companion (zero footprint)
 
-The package ships a companion `:Python script / EXE) that acts as the network
+The package ships a companion (Python script / EXE) that acts as the network
 relay for your session:
 
 - **It does not run until you start hosting.** No file watchers, no processes,
