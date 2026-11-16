@@ -11,6 +11,12 @@ namespace LiveCollab.Core
         readonly Orchestrator owner;
         TcpListenerCore listener;
 
+        /// <summary>True when hosting through the standalone companion (Python/exe relay).</summary>
+        public readonly bool External;
+        ClientLink upstream;
+        System.Diagnostics.Process companionProc;
+        bool companionWarned;
+
         readonly Dictionary<PeerSocket, int> uidByPeer = new Dictionary<PeerSocket, int>();
         readonly Dictionary<int, PeerSocket> peerByUid = new Dictionary<int, PeerSocket>();
         readonly Dictionary<PeerSocket, string> nameByPeer = new Dictionary<PeerSocket, string>();
@@ -36,15 +42,38 @@ namespace LiveCollab.Core
         float lastDiffTime = -1f;
         float lastFullTime = -1f;
 
-        public HostSession(Orchestrator o)
+        public HostSession(Orchestrator o, bool external = false)
         {
             owner = o;
+            External = external;
+        }
+
+        public bool CompanionAlive
+        {
+            get { return companionProc != null && !companionProc.HasExited; }
+        }
+
+        public void AttachCompanion(System.Diagnostics.Process proc)
+        {
+            companionProc = proc;
         }
 
         public bool Start(int port)
         {
             Port = port;
             Code = JoinCodec.Generate(owner.Rng);
+
+            if (External)
+            {
+                upstream = new ClientLink();
+                upstream.Connect("127.0.0.1", port, () =>
+                {
+                    var hello = new HelloData { name = owner.DisplayName, ver = "0.2.0", role = "owner" };
+                    SendToUpstream(Msg.Hello, hello);
+                }, msg => Debug.LogWarning("[LiveCollab] Companion connect failed: " + msg));
+                return true;
+            }
+
             try { listener = new TcpListenerCore(port); }
             catch (Exception e)
             {
@@ -63,6 +92,7 @@ namespace LiveCollab.Core
 
         public void Tick(float now)
         {
+            if (External) { TickExternal(now); return; }
             if (listener == null) return;
             var profile = owner.Profile;
 
@@ -90,6 +120,32 @@ namespace LiveCollab.Core
                 bool full = now - lastFullTime >= 10f;
                 if (full) lastFullTime = now;
                 BroadcastScene(diff, full);
+            }
+        }
+
+        void TickExternal(float now)
+        {
+            if (upstream == null || !upstream.Connected) return;
+            var peer = upstream.Peer;
+
+            string json;
+            while (peer.TryDequeue(out json))
+                HandleMessage(peer, json);
+
+            if (!companionWarned && companionProc != null && companionProc.HasExited)
+            {
+                companionWarned = true;
+                Debug.LogWarning("[LiveCollab] Companion process exited unexpectedly. Guests can no longer connect.");
+            }
+
+            var profile = owner.Profile;
+            if (now - lastDiffTime >= profile.TickIntervalMs * 0.001f)
+            {
+                lastDiffTime = now;
+                var cap = owner.Mirror.Capture();
+                var diff = owner.Mirror.Diff(cap);
+                if (diff.added.Count > 0 || diff.changed.Count > 0 || diff.removed.Count > 0)
+                    SendToUpstream(Msg.Diff, diff);
             }
         }
 
@@ -156,35 +212,57 @@ namespace LiveCollab.Core
 
         void RelayPresence(PeerSocket from, string data)
         {
-            int uid;
-            if (!uidByPeer.TryGetValue(from, out uid)) return;
             var pres = JsonUtility.FromJson<PresenceData>(data);
             if (pres == null) return;
+
+            if (External)
+            {
+                // companion already stamped uid/color and fanned this out to everyone
+                ApplyRemotePresence(pres);
+                return;
+            }
+
+            int uid;
+            if (!uidByPeer.TryGetValue(from, out uid)) return;
             pres.uid = uid;
             string n;
             pres.name = nameByPeer.TryGetValue(from, out n) ? n : "Guest";
+            ApplyRemotePresence(pres);
+            Broadcast(Msg.Pres, pres, uid);
+        }
 
+        void ApplyRemotePresence(PresenceData pres)
+        {
             var user = new RemoteUser
             {
-                Uid = uid,
-                Name = pres.name,
+                Uid = pres.uid,
+                Name = string.IsNullOrEmpty(pres.name) ? "Player " + pres.uid : pres.name,
                 Color = Orchestrator.HexToColor(pres.color),
                 Position = new Vector3(pres.x, pres.y, pres.z),
                 Age = 0f
             };
-            owner.Presence.Users[uid] = user;
-
-            Broadcast(Msg.Pres, pres, uid);
+            owner.Presence.Users[pres.uid] = user;
         }
 
         public void Broadcast(string type, object data, int exceptUid)
         {
+            if (External)
+            {
+                SendToUpstream(type, data);
+                return;
+            }
             string json = Msg.Pack(type, data);
             foreach (var kv in uidByPeer)
             {
                 if (kv.Value == exceptUid) continue;
                 kv.Key.Send(json);
             }
+        }
+
+        void SendToUpstream(string type, object data)
+        {
+            if (upstream != null && upstream.Connected)
+                upstream.Peer.Send(Msg.Pack(type, data));
         }
 
         void BroadcastScene(DiffData diff, bool full)
@@ -202,6 +280,22 @@ namespace LiveCollab.Core
 
         public void Stop()
         {
+            if (External)
+            {
+                if (upstream != null)
+                {
+                    try { if (upstream.Connected) upstream.Peer.Send(Msg.Pack(Msg.Leave, "{}")); } catch (Exception) { }
+                    upstream.Dispose();
+                    upstream = null;
+                }
+                if (companionProc != null)
+                {
+                    try { if (!companionProc.HasExited) companionProc.Kill(); } catch (Exception) { }
+                    companionProc = null;
+                }
+                return;
+            }
+
             if (listener != null) { listener.Dispose(); listener = null; }
             uidByPeer.Clear();
             peerByUid.Clear();

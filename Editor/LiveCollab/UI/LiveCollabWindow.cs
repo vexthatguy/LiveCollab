@@ -39,6 +39,7 @@ namespace LiveCollab.UI
         {
             displayName = EditorPrefs.GetString("LiveCollab.Name", Environment.UserName);
             EditorPrefs.SetString("LiveCollab.Name", displayName);
+            Orchestrator.Instance.Engine = (Orchestrator.HostEngine)EditorPrefs.GetInt("LiveCollab.Engine", 1);
             DiscoveryUdp.StartListen();
             titleContent.image = IconFactory.Icon;
         }
@@ -137,6 +138,28 @@ namespace LiveCollab.UI
             EditorGUILayout.LabelField("Port", GUILayout.Width(40));
             hostPort = EditorGUILayout.TextField(hostPort);
             EditorGUILayout.EndHorizontal();
+
+            var engine = (Orchestrator.HostEngine)EditorGUILayout.EnumPopup("Host engine", o.Engine);
+            if (engine != o.Engine)
+            {
+                o.Engine = engine;
+                EditorPrefs.SetInt("LiveCollab.Engine", (int)engine);
+            }
+            if (engine == Orchestrator.HostEngine.Companion)
+            {
+                string script = CompanionHost.LocateScript();
+                string exe = CompanionHost.LocateExe();
+                string python = CompanionHost.FindPython();
+                bool ok = exe != null || python.Length > 0;
+                EditorGUILayout.HelpBox(
+                    ok
+                        ? (exe != null
+                            ? "Using standalone LiveCollabHost.exe — runs only while hosting."
+                            : "Using " + script + " (Python " + python + ") — runs only while hosting.")
+                        : "Python not found and no LiveCollabHost.exe present. Install Python 3 or build the exe (Tools~/build_host_exe.bat).",
+                    ok ? MessageType.Info : MessageType.Warning);
+            }
+
             if (GUILayout.Button("Start hosting"))
             {
                 int p;
@@ -210,6 +233,8 @@ namespace LiveCollab.UI
                 "You are hosting. Same network: share the join code. Internet: share the IP:port " +
                 "(requires port forwarding on " + o.Host.Port + ").",
                 MessageType.Info);
+            if (o.Host.External)
+                EditorGUILayout.LabelField("Companion process: " + (o.Host.CompanionAlive ? "running (background)" : "not responding"), EditorStyles.miniLabel);
             EditorGUILayout.LabelField("Join code", EditorStyles.boldLabel);
             EditorGUILayout.LabelField(o.Host.Code, new GUIStyle("LargeLabel"));
             EditorGUILayout.LabelField("Address: " + o.Host.AddressText(), EditorStyles.miniLabel);

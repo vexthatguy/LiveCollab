@@ -14,6 +14,7 @@ namespace LiveCollab.Core
     public sealed class Orchestrator
     {
         public enum Role { Idle, Host, Client }
+        public enum HostEngine { InEditor, Companion }
 
         public static Orchestrator Instance { get; private set; }
 
@@ -35,6 +36,7 @@ namespace LiveCollab.Core
         public string DisplayName = "Creator";
         public long LastPingMs = -1;
         public readonly System.Random Rng = new System.Random();
+        public HostEngine Engine = HostEngine.Companion;
 
         float lastTickTime = -1f;
         float lastPresenceTime = -1f;
@@ -43,22 +45,71 @@ namespace LiveCollab.Core
 
         public bool Active { get { return CurrentRole != Role.Idle; } }
 
-        public void StartHost(int port,        {
+        public bool StartHost(int port)
+        {
+            return StartHost(port, Engine);
+        }
+
+        public bool StartHost(int port, HostEngine engine)
+        {
             StopAll();
             Mirror.Reset(false);
             Mirror.AllowMatchExisting = false;
             Mirror.UseHighOffsetIds = false;
             Profile = SyncProfile.Resolve(QualitySetting);
-            var host = new HostSession(this);
-            if (!host.Start(port))
+
+            if (engine == HostEngine.Companion)
+            {
+                if (CompanionHost.IsPortOpen(port))
+                {
+                    Debug.LogError("[LiveCollab] Port " + port + " is already in use — another LiveCollab host may be running. Close it or change the port.");
+                    return false;
+                }
+
+                string scriptPath = CompanionHost.LocateScript();
+                string exePath = CompanionHost.LocateExe();
+                string pythonCmd = exePath != null ? "" : CompanionHost.FindPython();
+                string err;
+                System.Diagnostics.Process proc;
+                string code = JoinCodec.Generate(Rng);
+
+                if (!CompanionHost.Spawn(scriptPath, pythonCmd, port, code, DisplayName, out proc, out err))
+                {
+                    Debug.LogError("[LiveCollab] " + err);
+                    return false;
+                }
+                if (!CompanionHost.WaitForPort(port, 12000))
+                {
+                    try { proc.Kill(); } catch (Exception) { }
+                    Debug.LogError("[LiveCollab] Companion did not open port " + port + ".");
+                    return false;
+                }
+
+                var host = new HostSession(this, true);
+                host.AttachCompanion(proc);
+                if (!host.Start(port))
+                {
+                    try { proc.Kill(); } catch (Exception) { }
+                    return false;
+                }
+                Host = host;
+                CurrentRole = Role.Host;
+                lastTickTime = -1f;
+                Debug.Log("[LiveCollab] Hosting via standalone companion · " + host.AddressText() + " · join code " + code);
+                return true;
+            }
+
+            var host2 = new HostSession(this);
+            if (!host2.Start(port))
             {
                 Debug.LogError("[LiveCollab] Hosting failed — check the port and firewall.");
-                return;
+                return false;
             }
-            Host = host;
+            Host = host2;
             CurrentRole = Role.Host;
             lastTickTime = -1f;
-            Debug.Log("[LiveCollab] Hosting on " + host.AddressText() + " · join code " + host.Code);
+            Debug.Log("[LiveCollab] Hosting on " + host2.AddressText() + " · join code " + host2.Code);
+            return true;
         }
 
         public bool Join(string address, int port)

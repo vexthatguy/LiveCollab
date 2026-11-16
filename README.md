@@ -12,6 +12,9 @@ nametag, like a co-editing session in Roblox Studio.
 - Lightweight: one small editor package, no background services
 - Auto-tuned sync rate from your hardware (CPU cores + RAM), manual override included
 - Works on any computer with Unity 2020.3+
+- **Zero-footprint standalone host companion**: a single-file Python script (or a
+  compiled EXE) that ships with the package and **does not run at all until you
+  press "Start hosting"** — no CPU/RAM use in idle projects
 
 ## Contents
 
@@ -44,6 +47,37 @@ The host owns the authoritative scene state. Clients send their local edits
 delta to everyone. A background diff engine compares the scene hierarchy
 against the last known state, so only what changed travels over the wire.
 
+### Standalone host companion (zero footprint)
+
+The package ships a companion `:Python script / EXE) that acts as the network
+relay for your session:
+
+- **It does not run until you start hosting.** No file watchers, no processes,
+  no CPU/RAM usage in a project you're just opening.
+- When you press **Start hosting** with the *Companion* engine (default), Unity
+  launches it, it takes over the TCP listener + LAN discovery, and the Unity
+  editor connects to it locally as the session owner.
+- Guests connect the same way as before (join code / IP:port / discovery list).
+- Because the network layer is outside the editor, **hosting survives
+  recompiles and domain reloads** — the companion keeps the room alive and the
+  editor reconnects.
+
+**Where does it live?** Inside the package at `Tools~/livecollab_host.py`
+(also auto-detected from `<YourProject>/LiveCollab_Host/livecollab_host.py`
+if you copy it there).
+
+**Build an EXE (optional, recommended for non-Python machines):**
+
+```
+pip install pyinstaller
+Tools~/build_host_exe.bat
+```
+
+Then copy `dist/LiveCollabHost.exe` into `<YourProject>/LiveCollab_Host/`.
+Unity will prefer the EXE over Python automatically. If neither Python nor an
+EXE is found, the panel warns you and you can fall back to the **In-editor**
+engine.
+
 ## Requirements
 
 - Unity **2020.3** or newer (Editor, any platform)
@@ -73,8 +107,9 @@ the editor toolbar.
 
 1. **Everyone installs the package** (same version).
 2. **Host**: on the hosting PC, open the LiveCollab panel (toolbar button or
-   *Tools ▸ LiveCollab ▸ Open Panel*), enter a name, and press **Start hosting**.
-   Note the join code and the address shown.
+   *Tools ▸ LiveCollab ▸ Open Panel*), enter a name, and press **Start hosting**
+   (Companion engine is the default — see the standalone companion section
+   above). Note the join code and the address shown.
 3. **Join (LAN)**: on the guest PC, open the panel, and either
    - type the host's **join code** (it will match the host discovered on your
      network), or
@@ -136,6 +171,17 @@ scene access can create/delete/modify objects in your project.
 
 - Check the IP/port. Ping the host from the guest.
 - On Windows, confirm inbound TCP 9501 is allowed.
+
+**"Port already in use" when starting to host**
+
+- Another LiveCollab host or relay is already running on that port. Stop it
+  (or close the other project's hosting session) or choose a different port.
+
+**"Python not found / no companion" warning**
+
+- The companion engine needs either Python 3 on PATH or a built
+  `LiveCollabHost.exe` in `LiveCollab_Host/` (see the standalone companion
+  section). Or switch the Host engine to **In-editor**.
 
 **Objects flicker / jump**
 

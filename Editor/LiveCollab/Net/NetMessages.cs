@@ -43,6 +43,7 @@ namespace LiveCollab.Net
     {
         public string name;
         public string ver;
+        public string role; // "" / "client" / "owner" (owner used by the standalone companion)
     }
 
     [Serializable]

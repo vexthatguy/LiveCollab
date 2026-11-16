@@ -45,3 +45,10 @@ desktop.ini
 # --- Node / misc ---
 node_modules/
 *.log
+
+# --- PyInstaller (companion exe builds) ---
+build/
+dist/
+*.spec
+__pycache__/
+*.pyc

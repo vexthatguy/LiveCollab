@@ -14,6 +14,7 @@ namespace LiveCollab.Core
         public Color MyColor = new Color(0.13f, 0.77f, 0.91f);
         public string Address;
         public int Port;
+        public string Role = ""; // set to "owner" when acting as the external-companion host
 
         public bool Connected { get { return link != null && link.Connected; } }
 
@@ -36,7 +37,7 @@ namespace LiveCollab.Core
 
         void OnConnected()
         {
-            var hello = new HelloData { name = owner.DisplayName, ver = "0.1.0" };
+            var hello = new HelloData { name = owner.DisplayName, ver = "0.2.0", role = Role };
             Send(Msg.Hello, hello);
         }
 
