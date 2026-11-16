@@ -15,8 +15,8 @@ nametag, like a co-editing session in Roblox Studio.
 - **Zero-footprint standalone host companion**: a single-file Python script (or a
   compiled EXE) that ships with the package and **does not run at all until you
   press "Start hosting"** — no CPU/RAM use in idle projects
-- Installers: Windows setup exe (NSIS), macOS app bundle/DMG, Linux installer
-  script/tarball
+- Installers: Windows setup exe (NSIS) with the **LiveCollab Manager app**,
+  macOS app bundle/DMG, Linux installer script/tarball
 
 ## Contents
 

@@ -9,7 +9,7 @@
 set -e
 cd "$(cd "$(dirname "$0")" && pwd)"
 
-VERSION="0.2.0-beta.1"
+VERSION="0.3.0-beta.2"
 PAYLOAD="$(pwd)/livecollab"
 PREFIX="$HOME/Library/Application Support/LiveCollab"
 PROJECT=""

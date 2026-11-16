@@ -56,6 +56,11 @@ def main() -> int:
     if uni.exists():
         copy_tree(uni, PAYLOAD / "livecollab_host")
 
+    # --- optional prebuilt manager app (Windows installer) ---
+    mgr = ROOT / "dist" / "LiveCollabManager.exe"
+    if mgr.exists():
+        copy_tree(mgr, STAGE / "LiveCollabManager.exe")
+
     # --- offline guide (Windows installer) ---
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     import html

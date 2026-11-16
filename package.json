@@ -1,6 +1,6 @@
 {
   "name": "com.livecollab.editor",
-  "version": "0.3.0-beta.1",
+  "version": "0.3.0-beta.2",
   "displayName": "LiveCollab",
   "description": "Real-time multiplayer scene editing inside the Unity Editor. Host or join a project session over LAN (or direct IP), see collaborators as floating balls with nametags, and watch object creation, movement, and deletion sync live. Includes a zero-footprint standalone host companion (Python script or EXE) that runs only while hosting. Sync rate auto-tunes to your hardware.",
   "unity": "2020.3",

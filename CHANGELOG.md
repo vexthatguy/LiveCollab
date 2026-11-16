@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.0-beta.2] - 2026-11-16
+
+Installer overhaul (fixes from beta.1 feedback):
+
+- **LiveCollab Manager app** (new): a small GUI to start/stop the host, see
+  the join code + address, and open the guide/GitHub. Desktop and Start menu
+  shortcuts now point to the Manager (not the HTML guide).
+- Fixed garbled text in the installer (non-ASCII strings corrupted in ANSI
+  builds) — the script is now pure ASCII.
+- Much better Unity auto-detection: registry (HKLM + HKCU, both views) plus a
+  scan of all fixed drives for Unity Hub installs; picks the **highest
+  installed version**, and the page lists everything it found.
+- Installer now **silently uninstalls any older LiveCollab version** before
+  installing the new one (no more duplicate/stale installs).
+- Finish page offers to launch the Manager app.
+- Added `livecollab_manager.py` to the package's `Tools~` (source form).
+
 ## [0.3.0-beta.1] - 2026-11-16
 
 Cross-platform release:
