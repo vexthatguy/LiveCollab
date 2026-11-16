@@ -19,7 +19,8 @@ namespace LiveCollab.Net
         {
             var e = new Envelope();
             e.t = type;
-            e.d = JsonUtility.ToJson(data);
+            if (data is string) e.d = (string)data;       // raw JSON passthrough
+            else e.d = JsonUtility.ToJson(data);
             return JsonUtility.ToJson(e);
         }
 

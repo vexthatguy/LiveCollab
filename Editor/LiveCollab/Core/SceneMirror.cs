@@ -110,7 +110,7 @@ namespace LiveCollab.Core
             if (t == null) return;
             int instanceId = t.gameObject.GetInstanceID();
             int id;
-            if (!instToNet.TryGetValue(instanceId, out id))
+            if (!instToNet.TryGetValue(instanceId, out id) || (id >= HighOffsetBase && !UseHighOffsetIds))
             {
                 id = UseHighOffsetIds ? (HighOffsetBase + highSeq++) : NextId++;
                 instToNet[instanceId] = id;
@@ -178,7 +178,7 @@ namespace LiveCollab.Core
 
         public int ApplyScene(SceneData scene)
         {
-            if (scene == null) return 0;
+            if (scene == null || scene.nodes == null) return 0;
             int created = 0;
             var batch = new Dictionary<int, GameObject>();
             foreach (var nd in scene.nodes)
@@ -191,31 +191,41 @@ namespace LiveCollab.Core
             if (diff == null) return 0;
             int created = 0;
             var batch = new Dictionary<int, GameObject>();
-            foreach (var nd in diff.added)
-                if (EnsureNode(nd, batch)) created++;
-
-            foreach (var nd in diff.changed)
+            if (diff.added != null)
             {
-                GameObject go;
-                if (batch.TryGetValue(nd.id, out go) && go != null)
-                    ApplyToTransform(nd, go.transform);
-                else if (Objects.TryGetValue(nd.id, out go) && go != null)
-                    ApplyToTransform(nd, go.transform);
-                else if (EnsureNode(nd, batch)) created++;
+                foreach (var nd in diff.added)
+                    if (EnsureNode(nd, batch)) created++;
             }
 
-            foreach (var id in diff.removed)
+            if (diff.changed != null)
             {
-                GameObject go;
-                if (Objects.TryGetValue(id, out go) && go != null)
+                foreach (var nd in diff.changed)
                 {
-                    if (DestroyOnRemove)
-                    {
-                        try { UnityEngine.Object.DestroyImmediate(go); } catch (Exception) { }
-                    }
-                    Objects.Remove(id);
+                    GameObject go;
+                    if (batch.TryGetValue(nd.id, out go) && go != null)
+                        ApplyToTransform(nd, go.transform);
+                    else if (Objects.TryGetValue(nd.id, out go) && go != null)
+                        ApplyToTransform(nd, go.transform);
+                    else if (EnsureNode(nd, batch)) created++;
                 }
-                Nodes.Remove(id);
+            }
+
+            if (diff.removed != null)
+            {
+                foreach (var id in diff.removed)
+                {
+                    GameObject go;
+                    if (Objects.TryGetValue(id, out go) && go != null)
+                    {
+                        if (DestroyOnRemove)
+                        {
+                            try { UnityEngine.Object.DestroyImmediate(go); } catch (Exception) { }
+                        }
+                        Objects.Remove(id);
+                        try { instToNet.Remove(go.GetInstanceID()); } catch (Exception) { }
+                    }
+                    Nodes.Remove(id);
+                }
             }
             return created;
         }
@@ -238,7 +248,9 @@ namespace LiveCollab.Core
                 created = true;
             }
             batch[nd.id] = go;
-            Objects[nd.id] = go;
+            bool isTemp = nd.id >= HighOffsetBase;
+            if (!isTemp || UseHighOffsetIds) Objects[nd.id] = go;
+            instToNet[go.GetInstanceID()] = nd.id;
 
             if (nd.parent != 0)
             {
