@@ -63,7 +63,7 @@ namespace LiveCollab.Core
                 lastDiffTime = now;
                 var cap = owner.Mirror.Capture();
                 var diff = owner.Mirror.Diff(cap);
-                if (diff.added.Count > 0 || diff.changed.Count > 0 || diff.removed.Count > 0)
+                if (diff.added.Count > 0 || diff.changed.Count > 0 || diff.removed.Count > 0 || diff.comps.Count > 0)
                     Send(Msg.Diff, diff);
             }
 

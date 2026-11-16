@@ -8,7 +8,7 @@ SetCompressor /SOLID lzma
 SetCompressorDictSize 64
 
 !define APPNAME "LiveCollab"
-!define VERSION "0.3.0-beta.3"
+!define VERSION "1.0.0"
 !define PUBLISHER "LiveCollab contributors"
 !define URL "https://github.com/vexthatguy/LiveCollab"
 !define REGUNINST "Software\Microsoft\Windows\CurrentVersion\Uninstall\LiveCollab"

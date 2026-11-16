@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEditor;
 
 namespace LiveCollab.Core
 {
@@ -17,6 +18,7 @@ namespace LiveCollab.Core
         public float px, py, pz;
         public float rx, ry, rz, rw;
         public float sx, sy, sz;
+        public List<CompData> comps; // optional component payload (only when changed)
 
         public static NodeData From(Transform t, int id, int parent)
         {
@@ -37,6 +39,22 @@ namespace LiveCollab.Core
     }
 
     [Serializable]
+    public class CompData
+    {
+        public string t; // component type name
+        public string j; // EditorJsonUtility json
+    }
+
+    [Serializable]
+    public class CompDiff
+    {
+        public int id;   // net node id
+        public string t; // component type name
+        public string j; // json (empty when removing)
+        public bool r;   // true = remove component
+    }
+
+    [Serializable]
     public class SceneData
     {
         public List<NodeData> nodes = new List<NodeData>();
@@ -49,6 +67,7 @@ namespace LiveCollab.Core
         public List<NodeData> added = new List<NodeData>();
         public List<NodeData> changed = new List<NodeData>();
         public List<int> removed = new List<int>();
+        public List<CompDiff> comps = new List<CompDiff>();
     }
 
     /// <summary>
@@ -67,11 +86,19 @@ namespace LiveCollab.Core
         public bool AllowMatchExisting;      // client-side: reuse user's objects when possible
         public bool DestroyOnRemove = true;  // destroy objects that disappear
         public bool UseHighOffsetIds;        // client-side: temp ids for locally created objects
+        public bool SyncComponents = true;   // sync Inspector/component values
         public int SyncedObjectCount;
 
         int highSeq;
         readonly Dictionary<int, int> instToNet = new Dictionary<int, int>();
         readonly HashSet<int> consumedInstances = new HashSet<int>();
+
+        // component sync state
+        readonly Dictionary<int, Dictionary<string, string>> compStore =
+            new Dictionary<int, Dictionary<string, string>>();
+        readonly Dictionary<int, HashSet<string>> prevCompPresent =
+            new Dictionary<int, HashSet<string>>();
+        Dictionary<int, HashSet<string>> currentPresent;
 
         public void Reset(bool keepScene)
         {
@@ -89,6 +116,9 @@ namespace LiveCollab.Core
             Objects.Clear();
             instToNet.Clear();
             consumedInstances.Clear();
+            compStore.Clear();
+            prevCompPresent.Clear();
+            currentPresent = null;
             NextId = 1;
             Revision = 0;
             highSeq = 0;
@@ -100,12 +130,14 @@ namespace LiveCollab.Core
             var list = new List<NodeData>();
             var scene = SceneManager.GetActiveScene();
             if (!scene.IsValid()) return list;
+            var present = new Dictionary<int, HashSet<string>>();
             foreach (var root in scene.GetRootGameObjects())
-                Walk(root.transform, 0, list);
+                Walk(root.transform, 0, list, present);
+            currentPresent = present;
             return list;
         }
 
-        void Walk(Transform t, int parentNet, List<NodeData> list)
+        void Walk(Transform t, int parentNet, List<NodeData> list, Dictionary<int, HashSet<string>> present)
         {
             if (t == null) return;
             int instanceId = t.gameObject.GetInstanceID();
@@ -116,9 +148,42 @@ namespace LiveCollab.Core
                 instToNet[instanceId] = id;
             }
             var nd = NodeData.From(t, id, parentNet);
+            if (SyncComponents) AttachComps(t, nd, id, present);
             list.Add(nd);
             for (int i = 0; i < t.childCount; i++)
-                Walk(t.GetChild(i), id, list);
+                Walk(t.GetChild(i), id, list, present);
+        }
+
+        void AttachComps(Transform t, NodeData nd, int id, Dictionary<int, HashSet<string>> present)
+        {
+            var seen = new HashSet<string>();
+            Dictionary<string, string> store;
+            if (!compStore.TryGetValue(id, out store))
+            {
+                store = new Dictionary<string, string>();
+                compStore[id] = store;
+            }
+
+            foreach (var c in t.GetComponents<Component>())
+            {
+                if (c == null || c is Transform) continue;
+                string key = c.GetType().FullName;
+                if (string.IsNullOrEmpty(key)) continue;
+                seen.Add(key);
+                try
+                {
+                    string json = EditorJsonUtility.ToJson(c);
+                    string old;
+                    if (!store.TryGetValue(key, out old) || old != json)
+                    {
+                        if (nd.comps == null) nd.comps = new List<CompData>();
+                        nd.comps.Add(new CompData { t = key, j = json });
+                        store[key] = json;
+                    }
+                }
+                catch (Exception) { }
+            }
+            present[id] = seen;
         }
 
         public DiffData Diff(List<NodeData> fresh)
@@ -144,8 +209,27 @@ namespace LiveCollab.Core
             foreach (var kv in Nodes)
                 if (!freshById.ContainsKey(kv.Key)) diff.removed.Add(kv.Key);
 
+            if (SyncComponents && currentPresent != null)
+                ComputeCompDiffs(diff);
+
             Commit(freshById);
             return diff;
+        }
+
+        void ComputeCompDiffs(DiffData diff)
+        {
+            foreach (var kv in prevCompPresent)
+            {
+                HashSet<string> cur;
+                if (!currentPresent.TryGetValue(kv.Key, out cur)) continue;
+                foreach (var typeName in kv.Value)
+                {
+                    if (!cur.Contains(typeName))
+                        diff.comps.Add(new CompDiff { id = kv.Key, t = typeName, r = true });
+                }
+            }
+            prevCompPresent = currentPresent;
+            currentPresent = null;
         }
 
         void Commit(Dictionary<int, NodeData> freshById)
@@ -156,6 +240,17 @@ namespace LiveCollab.Core
                 if (kv.Value == null) stale.Add(kv.Key);
             foreach (var id in stale) Objects.Remove(id);
             foreach (var kv in freshById) Nodes[kv.Key] = kv.Value;
+
+            // prune component state for objects that are gone
+            var dead = new List<int>();
+            foreach (var id in compStore.Keys)
+                if (!freshById.ContainsKey(id)) dead.Add(id);
+            foreach (var id in dead)
+            {
+                compStore.Remove(id);
+                prevCompPresent.Remove(id);
+            }
+
             Revision++;
             SyncedObjectCount = Nodes.Count;
         }
@@ -227,6 +322,17 @@ namespace LiveCollab.Core
                     Nodes.Remove(id);
                 }
             }
+
+            if (diff.comps != null)
+            {
+                foreach (var cd in diff.comps)
+                {
+                    GameObject go;
+                    if (!Objects.TryGetValue(cd.id, out go) || go == null) continue;
+                    if (cd.r) RemoveComponentOfType(go, cd.t);
+                    else ApplyComponentValue(go, cd.t, cd.j);
+                }
+            }
             return created;
         }
 
@@ -261,6 +367,11 @@ namespace LiveCollab.Core
                     go.transform.SetParent(pg.transform, true);
             }
             ApplyToTransform(nd, go.transform);
+            if (nd.comps != null && nd.comps.Count > 0)
+            {
+                foreach (var cd in nd.comps)
+                    ApplyComponentValue(go, cd.t, cd.j);
+            }
             return created;
         }
 
@@ -316,6 +427,61 @@ namespace LiveCollab.Core
                 if (t.name != nd.name) t.name = nd.name;
             }
             catch (Exception) { }
+        }
+
+        // ---------- component sync apply helpers ----------
+
+        static void ApplyComponentValue(GameObject go, string typeName, string json)
+        {
+            try
+            {
+                Type type = ResolveType(typeName);
+                if (type == null) return;
+                var comp = go.GetComponent(type);
+                if (comp == null) comp = go.AddComponent(type);
+                if (comp == null) return;
+                if (!string.IsNullOrEmpty(json))
+                    EditorJsonUtility.FromJsonOverwrite(json, comp);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[LiveCollab] component apply failed for " + typeName + ": " + e.Message);
+            }
+        }
+
+        static void RemoveComponentOfType(GameObject go, string typeName)
+        {
+            try
+            {
+                Type type = ResolveType(typeName);
+                if (type == null) return;
+                var comp = go.GetComponent(type);
+                if (comp != null) UnityEngine.Object.DestroyImmediate(comp);
+            }
+            catch (Exception) { }
+        }
+
+        static readonly Dictionary<string, Type> typeCache = new Dictionary<string, Type>();
+
+        static Type ResolveType(string name)
+        {
+            Type t;
+            if (typeCache.TryGetValue(name, out t)) return t;
+            try { t = Type.GetType(name); } catch (Exception) { t = null; }
+            if (t == null)
+            {
+                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    try
+                    {
+                        t = asm.GetType(name);
+                        if (t != null) break;
+                    }
+                    catch (Exception) { }
+                }
+            }
+            typeCache[name] = t;
+            return t;
         }
     }
 }

@@ -191,9 +191,16 @@ Override it any time under **Advanced settings ▸ Sync speed profile**.
 - **Transform**: position, rotation, scale (local)
 - **Parent** hierarchy changes
 - **Name** and **active** state
+- **Component / Inspector values** (script fields, materials, physics,
+  audio, etc.) — via the "Sync component properties" toggle (default on).
+  Component additions and removals are replicated too.
 
-Not synced (v0.1): component property values, prefab identity, undo history,
-physics state, play-mode gameplay data.
+Best-effort caveats:
+
+- Component references to assets only resolve when the referenced asset exists
+  on the other machine (same project checkout is assumed).
+- Prefab identity is not preserved; created objects are recreated plainly.
+- Undo history and play-mode gameplay state are not synced.
 
 ## Security / trust model
 

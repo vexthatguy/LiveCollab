@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.0.0] - 2026-11-16
+
+Stable release. This is the version to build a game with a friend on.
+
+Highlights since the betas:
+
+- **Component / Inspector property sync** (experimental toggle, on by default):
+  script fields, materials, physics, audio, etc. now replicate live via
+  `EditorJsonUtility`. Component additions and removals propagate too.
+- Everything from the betas: scene transform sync, presence balls + nametags,
+  auto-tuned sync speed, standalone companion host (zero footprint until you
+  host), LiveCollab Manager app, cross-platform installers, deep Unity
+  auto-detection, template injection for new projects, old-version cleanup.
+
+Not yet synced (expected in 1.x): prefab identity (objects are recreated
+plain), undo history, play-mode gameplay state. Component sync is
+best-effort for references to assets that don't exist on the other machine.
+
 ## [0.3.0-beta.3] - 2026-11-16
 
 - Unity detection is broader: scans **all fixed drives** (old code only

@@ -273,6 +273,8 @@ namespace LiveCollab.UI
             EditorGUILayout.LabelField("Detected hardware: " + HardwareProbe.Detect().Summary, EditorStyles.miniLabel);
             EditorGUILayout.Space(4);
             o.Presence.ShowBalls = EditorGUILayout.Toggle("Show collaborator balls (scene view)", o.Presence.ShowBalls);
+            bool syncComps = EditorGUILayout.Toggle("Sync component properties (experimental)", o.Mirror.SyncComponents);
+            if (syncComps != o.Mirror.SyncComponents) o.Mirror.SyncComponents = syncComps;
             EditorGUILayout.Space(4);
             EditorGUILayout.HelpBox("Changes apply from the next session. Auto mode re-detects your hardware.", MessageType.None);
         }

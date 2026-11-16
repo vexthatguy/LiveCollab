@@ -144,7 +144,7 @@ namespace LiveCollab.Core
                 lastDiffTime = now;
                 var cap = owner.Mirror.Capture();
                 var diff = owner.Mirror.Diff(cap);
-                if (diff.added.Count > 0 || diff.changed.Count > 0 || diff.removed.Count > 0)
+                if (diff.added.Count > 0 || diff.changed.Count > 0 || diff.removed.Count > 0 || diff.comps.Count > 0)
                     SendToUpstream(Msg.Diff, diff);
             }
         }
@@ -267,7 +267,7 @@ namespace LiveCollab.Core
 
         void BroadcastScene(DiffData diff, bool full)
         {
-            if (!full && diff.added.Count == 0 && diff.changed.Count == 0 && diff.removed.Count == 0)
+            if (!full && diff.added.Count == 0 && diff.changed.Count == 0 && diff.removed.Count == 0 && diff.comps.Count == 0)
                 return;
             string json = Msg.Pack(Msg.Diff, diff);
             foreach (var peer in uidByPeer.Keys) peer.Send(json);
