@@ -39,8 +39,8 @@ jobs:
 
       - name: Compile installer
         run: |
-          New-Item -ItemType Directory -Force release | Out-Null
-          .\nsis-3.11\makensis.exe LiveCollab.nsi
+          New-Item -ItemType Directory -Force ..\release | Out-Null
+          ..\nsis-3.11\makensis.exe LiveCollab.nsi
         working-directory: Tools~
 
       - name: Upload artifact

@@ -20,17 +20,26 @@ nametag, like a co-editing session in Roblox Studio.
 
 ## Contents
 
-- [How it works](#how-it-works)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Quick start](#quick-start)
-- [Joining over the internet](#joining-over-the-internet)
-- [Sync speed (auto-tuned)](#sync-speed-auto-tuned)
-- [What syncs](#what-syncs)
-- [Security / trust model](#security--trust-model)
-- [Troubleshooting](#troubleshooting)
-- [Roadmap](#roadmap)
-- [License](#license)
+- [LiveCollab](#livecollab)
+  - [Contents](#contents)
+  - [How it works](#how-it-works)
+    - [Standalone host companion (zero footprint)](#standalone-host-companion-zero-footprint)
+    - [Installing on macOS and Linux](#installing-on-macos-and-linux)
+  - [Requirements](#requirements)
+  - [Installation](#installation)
+  - [Quick start](#quick-start)
+  - [Joining over the internet](#joining-over-the-internet)
+  - [Sync speed (auto-tuned)](#sync-speed-auto-tuned)
+  - [What syncs](#what-syncs)
+  - [Security / trust model](#security--trust-model)
+  - [Troubleshooting](#troubleshooting)
+  - [Roadmap](#roadmap)
+    - [In the near term (Unity)](#in-the-near-term-unity)
+    - [Beyond Unity Editor — the larger vision](#beyond-unity-editor--the-larger-vision)
+  - [Contributing](#contributing)
+    - [Repository layout](#repository-layout)
+    - [Development setup — which IDE?](#development-setup--which-ide)
+  - [License](#license)
 
 ## How it works
 
@@ -56,7 +65,7 @@ relay for your session:
 
 - **It does not run until you start hosting.** No file watchers, no processes,
   no CPU/RAM usage in a project you're just opening.
-- When you press **Start hosting** with the *Companion* engine (default), Unity
+- When you press **Start hosting** with the _Companion_ engine (default), Unity
   launches it, it takes over the TCP listener + LAN discovery, and the Unity
   editor connects to it locally as the session owner.
 - Guests connect the same way as before (join code / IP:port / discovery list).
@@ -88,7 +97,7 @@ how you install it and which companion binary you use.
 **macOS (two options):**
 
 - **CI-built DMG** — native `.dmg` installers are built automatically by GitHub
-  Actions for every version tag (see *Releases*). Mount the DMG and run
+  Actions for every version tag (see _Releases_). Mount the DMG and run
   `install.command`.
 - **Manual** — download the macOS zip, unzip, and run `install.command` from a
   terminal (or right-click → Open if Gatekeeper complains). It installs to
@@ -141,7 +150,7 @@ the editor toolbar.
 
 1. **Everyone installs the package** (same version).
 2. **Host**: on the hosting PC, open the LiveCollab panel (toolbar button or
-   *Tools ▸ LiveCollab ▸ Open Panel*), enter a name, and press **Start hosting**
+   _Tools ▸ LiveCollab ▸ Open Panel_), enter a name, and press **Start hosting**
    (Companion engine is the default — see the standalone companion section
    above). Note the join code and the address shown.
 3. **Join (LAN)**: on the guest PC, open the panel, and either
@@ -168,11 +177,11 @@ the editor toolbar.
 LiveCollab reads your machine's CPU core count and total RAM and picks a sync
 profile automatically:
 
-| Profile | Rate | Typical hardware |
-|---------|------|------------------|
-| High | ~20 updates/s | 8+ cores / strong machine |
-| Medium | ~10 updates/s | 4–8 cores |
-| Low | ~5 updates/s | weak/low-power machines |
+| Profile | Rate          | Typical hardware          |
+| ------- | ------------- | ------------------------- |
+| High    | ~20 updates/s | 8+ cores / strong machine |
+| Medium  | ~10 updates/s | 4–8 cores                 |
+| Low     | ~5 updates/s  | weak/low-power machines   |
 
 Override it any time under **Advanced settings ▸ Sync speed profile**.
 
@@ -223,7 +232,7 @@ scene access can create/delete/modify objects in your project.
 
 **Toolbar button missing**
 
-- Use *Tools ▸ LiveCollab ▸ Open Panel* — the toolbar hook can fail on
+- Use _Tools ▸ LiveCollab ▸ Open Panel_ — the toolbar hook can fail on
   non-standard editor layouts.
 
 ## Roadmap
@@ -272,22 +281,22 @@ platforms, and documentation.
 
 ### Repository layout
 
-| Path | What lives there |
-|------|------------------|
-| `Editor/LiveCollab/` | The Unity package: UI, scene mirror, sessions, companion launcher |
-| `Tools~/livecollab_host.py` | The standalone companion/relay (pure Python stdlib) |
-| `Tools~/install_*` | Cross-platform installer scripts |
-| `.github/workflows/` | CI: builds Windows/macOS/Linux installers on tag pushes |
-| `Tools~/LiveCollab.nsi` | Windows NSIS installer source |
+| Path                        | What lives there                                                  |
+| --------------------------- | ----------------------------------------------------------------- |
+| `Editor/LiveCollab/`        | The Unity package: UI, scene mirror, sessions, companion launcher |
+| `Tools~/livecollab_host.py` | The standalone companion/relay (pure Python stdlib)               |
+| `Tools~/install_*`          | Cross-platform installer scripts                                  |
+| `.github/workflows/`        | CI: builds Windows/macOS/Linux installers on tag pushes           |
+| `Tools~/LiveCollab.nsi`     | Windows NSIS installer source                                     |
 
 ### Development setup — which IDE?
 
 **For Unity (C#) work:**
 
-- **Visual Studio Community** (Windows, free) with the *Unity* workload — the
+- **Visual Studio Community** (Windows, free) with the _Unity_ workload — the
   simplest, best-integrated choice.
 - **JetBrains Rider** — excellent Unity support; free for non-commercial use.
-- **VS Code** + the *C# Dev Kit* and *Unity* extensions — lightweight, cross-
+- **VS Code** + the _C# Dev Kit_ and _Unity_ extensions — lightweight, cross-
   platform, works on Windows/macOS/Linux.
 
 You don't need a .NET SDK installed separately — Unity compiles the package.
