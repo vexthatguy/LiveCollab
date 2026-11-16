@@ -1,40 +1,79 @@
-import pathlib
-import html
+#!/usr/bin/env python3
+"""Assemble the payload layout used by the installers and CI.
 
-repo = pathlib.Path(r"E:\Windows\Downloads\UnityLiveCollab")
-stage = repo / "build" / "stage"
-stage.mkdir(parents=True, exist_ok=True)
+Result (repo/build/stage):
+  livecollab/
+    livecollab_host.py          companion script (all platforms)
+    package/                    UPM package (full tree)
+      package.json LICENSE README.md CHANGELOG.md Editor/ Tools~/
+  livecollab_guide.html         offline doc (Windows installer uses this)
+  LiveCollabHost.exe            copied if dist/LiveCollabHost.exe exists
 
-readme = (repo / "README.md").read_text(encoding="utf-8")
-body = html.escape(readme)
-doc = """<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>LiveCollab — User Guide</title>
-<style>
-body{font-family:Segoe UI,Arial,sans-serif;max-width:900px;margin:24px auto;padding:0 16px;color:#1b1b1b;line-height:1.55}
-h1{color:#0e7c9a}h2{color:#0e7c9a;border-bottom:1px solid #ddd;padding-bottom:4px;margin-top:36px}
-pre{background:#f6f8fa;border:1px solid #e1e4e8;border-radius:6px;padding:14px;overflow-x:auto;white-space:pre-wrap}
-code{background:#f0f2f4;border-radius:3px;padding:1px 4px}
-</style>
-</head>
-<body>
-<pre>""" + body + """</pre>
-</body>
-</html>
+Run from anywhere; paths are relative to the repo root (this file sits in
+Tools~/, two levels down from the root). Works on Windows/macOS/Linux.
 """
-(stage / "livecollab_guide.html").write_text(doc, encoding="utf-8")
-print("guide written", len(doc))
-
-# ---- copy package payload into stage ----
+import pathlib
 import shutil
+import sys
 
-for name in ("package.json", "LICENSE", "README.md", "CHANGELOG.md"):
-    shutil.copy2(repo / name, stage / name)
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+STAGE = ROOT / "build" / "stage"
+PAYLOAD = STAGE / "livecollab"
+PKG = PAYLOAD / "package"
 
-shutil.copytree(repo / "Editor", stage / "Editor", dirs_exist_ok=True)
-shutil.copytree(repo / "Tools~", stage / "Tools~", dirs_exist_ok=True)
-shutil.copy2(repo / "dist" / "LiveCollabHost.exe", stage / "LiveCollabHost.exe")
 
-print("staged files:", sorted(p.name for p in stage.iterdir()))
+def copy_tree(src: pathlib.Path, dst: pathlib.Path) -> None:
+    if src.is_dir():
+        shutil.copytree(
+            src, dst, dirs_exist_ok=True,
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"))
+    elif src.is_file():
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+    else:
+        raise FileNotFoundError(src)
+
+
+def main() -> int:
+    STAGE.mkdir(parents=True, exist_ok=True)
+    PAYLOAD.mkdir(parents=True, exist_ok=True)
+    PKG.mkdir(parents=True, exist_ok=True)
+
+    # --- UPM package payload ---
+    for name in ("package.json", "LICENSE", "README.md", "CHANGELOG.md"):
+        copy_tree(ROOT / name, PKG / name)
+    copy_tree(ROOT / "Editor", PKG / "Editor")
+    copy_tree(ROOT / "Tools~", PKG / "Tools~")
+
+    # --- companion script ---
+    copy_tree(ROOT / "Tools~" / "livecollab_host.py", PAYLOAD / "livecollab_host.py")
+
+    # --- optional prebuilt companion binary (used by CI) ---
+    exe = ROOT / "dist" / "LiveCollabHost.exe"
+    if exe.exists():
+        copy_tree(exe, STAGE / "LiveCollabHost.exe")
+    uni = ROOT / "dist" / "livecollab_host"
+    if uni.exists():
+        copy_tree(uni, PAYLOAD / "livecollab_host")
+
+    # --- offline guide (Windows installer) ---
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    import html
+    body = html.escape(readme)
+    doc = ("<!DOCTYPE html><html><head><meta charset=\"utf-8\">"
+           "<title>LiveCollab — User Guide</title><style>"
+           "body{font-family:Segoe UI,Arial,sans-serif;max-width:900px;margin:24px auto;"
+           "padding:0 16px;color:#1b1b1b;line-height:1.55}"
+           "h1{color:#0e7c9a}h2{color:#0e7c9a;border-bottom:1px solid #ddd;"
+           "padding-bottom:4px;margin-top:36px}"
+           "pre{background:#f6f8fa;border:1px solid #e1e4e8;border-radius:6px;"
+           "padding:14px;overflow-x:auto;white-space:pre-wrap}</style></head><body><pre>"
+           + body + "</pre></body></html>")
+    (STAGE / "livecollab_guide.html").write_text(doc, encoding="utf-8")
+
+    print("staged:", sorted(str(p.relative_to(STAGE)) for p in STAGE.rglob("*") if p.is_file()))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

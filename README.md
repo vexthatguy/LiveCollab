@@ -11,10 +11,12 @@ nametag, like a co-editing session in Roblox Studio.
 - Zero external dependencies (pure .NET + Unity editor APIs)
 - Lightweight: one small editor package, no background services
 - Auto-tuned sync rate from your hardware (CPU cores + RAM), manual override included
-- Works on any computer with Unity 2020.3+
+- Works on any computer with Unity 2020.3+ (Windows, macOS, Linux)
 - **Zero-footprint standalone host companion**: a single-file Python script (or a
   compiled EXE) that ships with the package and **does not run at all until you
   press "Start hosting"** — no CPU/RAM use in idle projects
+- Installers: Windows setup exe (NSIS), macOS app bundle/DMG, Linux installer
+  script/tarball
 
 ## Contents
 
@@ -78,10 +80,42 @@ Unity will prefer the EXE over Python automatically. If neither Python nor an
 EXE is found, the panel warns you and you can fall back to the **In-editor**
 engine.
 
+### Installing on macOS and Linux
+
+The Unity package itself is fully cross-platform — the differences are only in
+how you install it and which companion binary you use.
+
+**macOS (two options):**
+
+- **CI-built DMG** — native `.dmg` installers are built automatically by GitHub
+  Actions for every version tag (see *Releases*). Mount the DMG and run
+  `install.command`.
+- **Manual** — download the macOS zip, unzip, and run `install.command` from a
+  terminal (or right-click → Open if Gatekeeper complains). It installs to
+  `~/Library/Application Support/LiveCollab`.
+
+**Linux (two options):**
+
+- **CI-built tarball** — download `LiveCollab-Linux-<version>.tar.gz`, extract,
+  and run `./install.sh` (POSIX sh). Installs to `~/.local/share/LiveCollab`.
+- **Manual** — same archive contains the raw payload (`livecollab/`) you can
+  place anywhere; `install.sh` supports `--prefix` and `--project`.
+
+Both installers accept `--project /path/to/UnityProject` to install the package
+directly into that project's `Packages/com.livecollab.editor`.
+
+> Compiled `livecollab_host` companion binaries for macOS/Linux are produced by
+> GitHub Actions on tag pushes; until then the bundled `livecollab_host.py`
+> works with `python3`.
+
 ## Requirements
 
-- Unity **2020.3** or newer (Editor, any platform)
+- Unity **2020.3** or newer (Editor, any platform: Windows / macOS / Linux)
 - Same local network for auto-discovery (or port forwarding for internet joins)
+- The companion host needs Python 3 on PATH, or the prebuilt companion binary:
+  - Windows: `LiveCollabHost.exe` (ships inside the setup exe)
+  - macOS / Linux: `livecollab_host` binary (built by CI — see below), or use
+    the bundled `livecollab_host.py` with `python3`
 
 ## Installation
 

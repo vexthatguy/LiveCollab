@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.0-beta.1] - 2026-11-16
+
+Cross-platform release:
+
+- **macOS and Linux supported** (the Unity package always was; now installers
+  and companion binaries are too).
+- Linux installer script (`Tools~/install_linux.sh`) + tarball.
+- macOS installer script (`Tools~/install_macos.command`) + zip; native DMG
+  built by CI.
+- GitHub Actions workflow (`.github/workflows/build-installers.yml`) builds
+  Windows NSIS exe, macOS DMG, and Linux tarball on every `v*` tag push and
+  attaches them to the release automatically.
+- Companion host detection now also finds the Unix-style compiled binary
+  (`livecollab_host` without extension) on macOS/Linux.
+
 ## [0.2.0-beta.1] - 2026-11-16
 
 First **beta release** — ships as a Windows installer (NSIS):

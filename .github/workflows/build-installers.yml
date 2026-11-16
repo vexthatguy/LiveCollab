@@ -1,0 +1,145 @@
+name: build-installers
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  #############################################################################
+  # Windows — NSIS setup exe
+  #############################################################################
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build companion exe
+        run: |
+          python -m pip install pyinstaller
+          python -m PyInstaller --onefile --noconsole `
+            --icon Tools~/livecollab_icon.ico `
+            --name LiveCollabHost Tools~/livecollab_host.py
+
+      - name: Stage payload
+        run: python Tools~/stage_installer.py
+
+      - name: Install NSIS
+        run: |
+          curl.exe -L -o nsis.zip https://downloads.sourceforge.net/project/nsis/NSIS%203/3.11/nsis-3.11.zip
+          Expand-Archive nsis.zip -DestinationPath .
+
+      - name: Compile installer
+        run: .\nsis-3.11\makensis.exe LiveCollab.nsi
+        working-directory: Tools~
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-setup
+          path: release/LiveCollab-Setup-*.exe
+          if-no-files-found: error
+
+  #############################################################################
+  # macOS — DMG
+  #############################################################################
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build companion binary
+        run: |
+          python3 -m pip install pyinstaller
+          python3 -m PyInstaller --onefile --distpath dist --name livecollab_host Tools~/livecollab_host.py
+          chmod +x dist/livecollab_host
+
+      - name: Stage payload
+        run: python3 Tools~/stage_installer.py
+
+      - name: Assemble DMG
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          rm -rf build/dmg && mkdir -p build/dmg/LiveCollab
+          cp Tools~/install_macos.command build/dmg/LiveCollab/install.command
+          cp -R build/stage/livecollab build/dmg/LiveCollab/
+          chmod +x build/dmg/LiveCollab/install.command
+          hdiutil create -volname "LiveCollab ${VERSION}" \
+            -srcfolder build/dmg -ov -format UDZO \
+            release/LiveCollab-macOS-${VERSION}.dmg
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: release/LiveCollab-macOS-*.dmg
+          if-no-files-found: error
+
+  #############################################################################
+  # Linux — tar.gz with POSIX installer
+  #############################################################################
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build companion binary
+        run: |
+          python3 -m pip install pyinstaller
+          python3 -m PyInstaller --onefile --distpath dist --name livecollab_host Tools~/livecollab_host.py
+          chmod +x dist/livecollab_host
+
+      - name: Stage payload
+        run: python3 Tools~/stage_installer.py
+
+      - name: Assemble tarball
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          rm -rf build/bundle && mkdir -p build/bundle/LiveCollab
+          cp Tools~/install_linux.sh build/bundle/LiveCollab/install.sh
+          cp -R build/stage/livecollab build/bundle/LiveCollab/
+          chmod +x build/bundle/LiveCollab/install.sh
+          tar -czf release/LiveCollab-Linux-${VERSION}.tar.gz -C build/bundle LiveCollab
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-targz
+          path: release/LiveCollab-Linux-*.tar.gz
+          if-no-files-found: error
+
+  #############################################################################
+  # Attach everything produced by this tag to the GitHub Release
+  #############################################################################
+  release:
+    needs: [windows, macos, linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          files: artifacts/*
+          generate_release_notes: true

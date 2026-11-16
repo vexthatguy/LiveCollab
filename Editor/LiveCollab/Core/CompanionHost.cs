@@ -67,6 +67,20 @@ namespace LiveCollab.Core
 
             string projExe = Path.Combine(Directory.GetCurrentDirectory(), ProjectCopyDir, ExeName);
             if (File.Exists(projExe)) return projExe;
+
+            // Unix-style compiled binary (macOS / Linux) — no .exe extension
+            if (Application.platform != RuntimePlatform.WindowsEditor)
+            {
+                string uni = Path.Combine(Directory.GetCurrentDirectory(), ProjectCopyDir, "livecollab_host");
+                if (File.Exists(uni)) return uni;
+
+                string pkgUni = TryPackagePath();
+                if (pkgUni != null)
+                {
+                    string s = Path.Combine(pkgUni, "Tools~", "livecollab_host");
+                    if (File.Exists(s)) return s;
+                }
+            }
             return null;
         }
 
