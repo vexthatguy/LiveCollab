@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0-beta.3] - 2026-11-16
+
+- Unity detection is broader: scans **all fixed drives** (old code only
+  handled default paths), plus per-user installs under
+  `%LOCALAPPDATA%\Programs\Unity`, plus legacy registry keys under `Unity
+  Technologies`. It still picks the highest installed version.
+- The "Detected installs" label on the Unity page **updates live** when you
+  browse to or type a folder, and shows every install found.
+- New installer option (on by default): **"Enable LiveCollab in new Unity
+  projects"** — copies the package into your Unity project templates, so every
+  new project already includes LiveCollab. It stays idle (zero CPU/RAM, no
+  background processes) until you host or join.
+- Uninstaller also removes any package copies it injected into the templates.
+
 ## [0.3.0-beta.2] - 2026-11-16
 
 Installer overhaul (fixes from beta.1 feedback):

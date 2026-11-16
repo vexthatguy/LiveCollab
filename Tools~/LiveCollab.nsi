@@ -8,7 +8,7 @@ SetCompressor /SOLID lzma
 SetCompressorDictSize 64
 
 !define APPNAME "LiveCollab"
-!define VERSION "0.3.0-beta.2"
+!define VERSION "0.3.0-beta.3"
 !define PUBLISHER "LiveCollab contributors"
 !define URL "https://github.com/vexthatguy/LiveCollab"
 !define REGUNINST "Software\Microsoft\Windows\CurrentVersion\Uninstall\LiveCollab"
@@ -148,6 +148,43 @@ Section "Desktop shortcut" SecDesktop
   CreateShortCut "$DESKTOP\LiveCollab Manager.lnk" "$INSTDIR\LiveCollabManager.exe"
 SectionEnd
 
+Section "Enable LiveCollab in new Unity projects" SecTemplates
+  ; copies the package into the Unity project templates, so every future
+  ; project created from those templates already contains LiveCollab.
+  ${If} $FoundList == ""
+    Return
+  ${EndIf}
+  StrCpy $2 1
+  ${Do}
+    ${WordFind} "$FoundList" "|" "+$2" $4
+    ${If} $4 == ""
+      ${ExitDo}
+    ${EndIf}
+    Push $4
+    Call InstallTemplates
+    IntOp $2 $2 + 1
+  ${Loop}
+SectionEnd
+
+Function InstallTemplates
+  Pop $8
+  ${IfNot} ${FileExists} "$8\Data\Resources\PackageManager\ProjectTemplates"
+    Return
+  ${EndIf}
+  FindFirst $5 $6 "$8\Data\Resources\PackageManager\ProjectTemplates\*"
+  ${Do}
+    ${If} $6 == ""
+      ${ExitDo}
+    ${EndIf}
+    ${If} ${FileExists} "$8\Data\Resources\PackageManager\ProjectTemplates\$6\Packages"
+      CreateDirectory "$8\Data\Resources\PackageManager\ProjectTemplates\$6\Packages\com.livecollab.editor"
+      CopyFiles /silent "$INSTDIR\package\*" "$8\Data\Resources\PackageManager\ProjectTemplates\$6\Packages\com.livecollab.editor\"
+    ${EndIf}
+    FindNext $5 $6
+  ${Loop}
+  FindClose $5
+FunctionEnd
+
 ; ---------------- custom Unity page ----------------
 Function UnityPageCreate
   nsDialogs::Create 1018
@@ -198,6 +235,7 @@ Function UnityBrowse
   ${If} $0 != error
     StrCpy $UnityPath $0
     ${NSD_SetText} $UnityList $UnityPath
+    Call RefreshDetectedLabel
   ${EndIf}
 FunctionEnd
 
@@ -222,10 +260,34 @@ Function ProjectCheck
   ${EndIf}
 FunctionEnd
 
+Function RefreshDetectedLabel
+  StrCmp $UnityPath "" skip
+  ${If} $FoundList == ""
+    StrCpy $FoundList "$UnityPath"
+  ${Else}
+    StrCpy $2 1
+    ${Do}
+      ${WordFind} "$FoundList" "|" "+$2" $4
+      ${If} $4 == ""
+        ${ExitDo}
+      ${EndIf}
+      StrCmp $4 "$UnityPath" found
+      IntOp $2 $2 + 1
+    ${Loop}
+    StrCpy $FoundList "$FoundList|$UnityPath"
+    found:
+  ${EndIf}
+  ${If} $DetectedLabel != ""
+    ${NSD_SetText} $DetectedLabel "Detected installs on this PC: $FoundList"
+  ${EndIf}
+  skip:
+FunctionEnd
+
 Function UnityPageLeave
   ${NSD_GetText} $UnityList $UnityPath
   ${NSD_GetText} $ProjectEdit $ProjectPath
   ${NSD_GetState} $ProjectInstall $ProjectInstall
+  Call RefreshDetectedLabel
 
   ${If} $ProjectInstall == 1
     ${If} $ProjectPath == ""
@@ -257,8 +319,10 @@ Function .onInit
   ; 1) registry (HKLM then HKCU, both views)
   SetRegView 64
   Call DetectUnityReg
+  Call DetectUnityRegLegacy
   SetRegView 32
   Call DetectUnityReg
+  Call DetectUnityRegLegacy
 
   ; 2) scan all fixed drives for Unity Hub installs
   ${GetDrives} "HDD" AddDriveCallback
@@ -304,6 +368,44 @@ Function DetectUnityReg
   ${Loop}
 FunctionEnd
 
+Function DetectUnityRegLegacy
+  ; older installers may live under HKLM\SOFTWARE\Unity Technologies\<key> with a Location value
+  StrCpy $2 0
+  ${Do}
+    EnumRegKey $1 HKLM "SOFTWARE\Unity Technologies" $2
+    ${If} $1 == ""
+      ${ExitDo}
+    ${EndIf}
+    ReadRegStr $3 HKLM "SOFTWARE\Unity Technologies\$1" "Location"
+    ${If} $3 != ""
+      ${If} ${FileExists} "$3\Editor\Unity.exe"
+        StrCpy $3 "$3\Editor"
+        Call AddCandidate
+      ${ElseIf} ${FileExists} "$3\Unity.exe"
+        Call AddCandidate
+      ${EndIf}
+    ${EndIf}
+    IntOp $2 $2 + 1
+  ${Loop}
+  StrCpy $2 0
+  ${Do}
+    EnumRegKey $1 HKCU "SOFTWARE\Unity Technologies" $2
+    ${If} $1 == ""
+      ${ExitDo}
+    ${EndIf}
+    ReadRegStr $3 HKCU "SOFTWARE\Unity Technologies\$1" "Location"
+    ${If} $3 != ""
+      ${If} ${FileExists} "$3\Editor\Unity.exe"
+        StrCpy $3 "$3\Editor"
+        Call AddCandidate
+      ${ElseIf} ${FileExists} "$3\Unity.exe"
+        Call AddCandidate
+      ${EndIf}
+    ${EndIf}
+    IntOp $2 $2 + 1
+  ${Loop}
+FunctionEnd
+
 Function AddDriveCallback
   ; $0 contains a drive like "C:\"
   Push $0
@@ -323,7 +425,37 @@ Function AddDriveCallback
     StrCpy $3 "$0Unity\Editor"
     Call AddCandidate
   ${EndIf}
+
+  ; per-user installs (Unity Hub installed for current user only)
+  ${If} ${FileExists} "$LOCALAPPDATA\Programs\Unity\Hub\Editor"
+    StrCpy $1 "$LOCALAPPDATA\Programs\Unity\Hub\Editor\*"
+    StrCpy $0 "$LOCALAPPDATA\Programs\Unity\Hub\Editor\"
+    Call ScanHubDirFlat
+  ${EndIf}
+  ${If} ${FileExists} "$LOCALAPPDATA\Programs\Unity\Editor\Unity.exe"
+    StrCpy $3 "$LOCALAPPDATA\Programs\Unity\Editor"
+    Call AddCandidate
+  ${EndIf}
   Pop $0
+FunctionEnd
+
+Function ScanHubDirFlat
+  ; $1 = path with trailing \* ; $0 = parent dir for prefixing
+  FindFirst $2 $4 $1
+  ${Do}
+    ${If} $4 == ""
+      ${ExitDo}
+    ${EndIf}
+    ${If} ${FileExists} "$0$4\Editor\Unity.exe"
+      StrCpy $3 "$0$4\Editor"
+      Call AddCandidate
+    ${ElseIf} ${FileExists} "$0$4\Unity.exe"
+      StrCpy $3 "$0$4"
+      Call AddCandidate
+    ${EndIf}
+    FindNext $2 $4
+  ${Loop}
+  FindClose $2
 FunctionEnd
 
 Function ScanHubDir
@@ -521,5 +653,48 @@ Section "Uninstall"
   RMDir "$SMPROGRAMS\${APPNAME}"
   Delete "$DESKTOP\LiveCollab Manager.lnk"
 
+  ; remove any package copies we injected into Unity templates
+  ${GetDrives} "HDD" un.UnInstallTemplatesDrive
+
   DeleteRegKey HKLM "${REGUNINST}"
 SectionEnd
+
+Function un.UnInstallTemplatesDrive
+  Push $0
+  ${If} ${FileExists} "$0Program Files\Unity\Hub\Editor"
+    StrCpy $1 "$0Program Files\Unity\Hub\Editor\*"
+    Call un.RemoveTemplatesFromEditor
+  ${EndIf}
+  ${If} ${FileExists} "$0Program Files (x86)\Unity\Hub\Editor"
+    StrCpy $1 "$0Program Files (x86)\Unity\Hub\Editor\*"
+    Call un.RemoveTemplatesFromEditor
+  ${EndIf}
+  ${If} ${FileExists} "$0Unity\Hub\Editor"
+    StrCpy $1 "$0Unity\Hub\Editor\*"
+    Call un.RemoveTemplatesFromEditor
+  ${EndIf}
+  Pop $0
+FunctionEnd
+
+Function un.RemoveTemplatesFromEditor
+  FindFirst $5 $6 $1
+  ${Do}
+    ${If} $6 == ""
+      ${ExitDo}
+    ${EndIf}
+    ${If} ${FileExists} "$0$6\Editor\Data\Resources\PackageManager\ProjectTemplates"
+      StrCpy $2 "$0$6\Editor\Data\Resources\PackageManager\ProjectTemplates\*"
+      FindFirst $7 $8 $2
+      ${Do}
+        ${If} $8 == ""
+          ${ExitDo}
+        ${EndIf}
+        RMDir /r "$0$6\Editor\Data\Resources\PackageManager\ProjectTemplates\$8\Packages\com.livecollab.editor"
+        FindNext $7 $8
+      ${Loop}
+      FindClose $7
+    ${EndIf}
+    FindNext $5 $6
+  ${Loop}
+  FindClose $5
+FunctionEnd

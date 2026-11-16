@@ -8,7 +8,7 @@
 
 set -e
 
-VERSION="0.3.0-beta.2"
+VERSION="0.3.0-beta.3"
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PAYLOAD="$SCRIPT_DIR/livecollab"
 PREFIX="${HOME}/.local/share/LiveCollab"
