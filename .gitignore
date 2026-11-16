@@ -37,7 +37,6 @@ crashlytics-build.properties
 .idea/
 *.swp
 *.swo
-*~
 .DS_Store
 Thumbs.db
 desktop.ini
