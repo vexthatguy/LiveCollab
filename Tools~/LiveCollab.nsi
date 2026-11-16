@@ -9,7 +9,7 @@ SetCompressorDictSize 64
 ShowInstDetails show
 
 !define APPNAME "LiveCollab"
-!define VERSION "1.0.1"
+!define VERSION "1.0.2"
 !define PUBLISHER "LiveCollab contributors"
 !define URL "https://github.com/vexthatguy/LiveCollab"
 !define REGUNINST "Software\Microsoft\Windows\CurrentVersion\Uninstall\LiveCollab"
@@ -24,6 +24,7 @@ InstallDirRegKey HKLM "${REGUNINST}" "InstallLocation"
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
 !include "WordFunc.nsh"
+!include "TextFunc.nsh"
 
 !define MUI_ICON "livecollab_icon.ico"
 !define MUI_UNICON "livecollab_icon.ico"
@@ -146,10 +147,6 @@ Section "Install package into a Unity project" SecProject
   ${EndIf}
 SectionEnd
 
-Section "Desktop shortcut" SecDesktop
-  CreateShortCut "$DESKTOP\LiveCollab Manager.lnk" "$INSTDIR\LiveCollabManager.exe"
-SectionEnd
-
 Section "Enable LiveCollab in new Unity projects" SecTemplates
   ; copies the package into the Unity project templates, so every future
   ; project created from those templates already contains LiveCollab.
@@ -179,13 +176,33 @@ Function InstallTemplates
       ${ExitDo}
     ${EndIf}
     ${If} ${FileExists} "$8\Data\Resources\PackageManager\ProjectTemplates\$6\Packages"
+      ; skip if this template already has this exact version installed
+      ${If} ${FileExists} "$8\Data\Resources\PackageManager\ProjectTemplates\$6\Packages\com.livecollab.editor\.installed-version"
+        FileOpen $9 "$8\Data\Resources\PackageManager\ProjectTemplates\$6\Packages\com.livecollab.editor\.installed-version" r
+        FileRead $9 $0
+        FileClose $9
+        ${TrimNewLines} $0 $0
+        ${If} $0 == "${VERSION}"
+          DetailPrint "Template $6: LiveCollab ${VERSION} already installed"
+          FindNext $5 $6
+          ${Continue}
+        ${EndIf}
+      ${EndIf}
+      DetailPrint "Installing LiveCollab into template: $6"
       CreateDirectory "$8\Data\Resources\PackageManager\ProjectTemplates\$6\Packages\com.livecollab.editor"
-      CopyFiles /silent "$INSTDIR\package\*" "$8\Data\Resources\PackageManager\ProjectTemplates\$6\Packages\com.livecollab.editor\"
+      CopyFiles "$INSTDIR\package\*" "$8\Data\Resources\PackageManager\ProjectTemplates\$6\Packages\com.livecollab.editor\"
+      FileOpen $9 "$8\Data\Resources\PackageManager\ProjectTemplates\$6\Packages\com.livecollab.editor\.installed-version" w
+      FileWrite $9 "${VERSION}"
+      FileClose $9
     ${EndIf}
     FindNext $5 $6
   ${Loop}
   FindClose $5
 FunctionEnd
+
+Section "Desktop shortcut" SecDesktop
+  CreateShortCut "$DESKTOP\LiveCollab Manager.lnk" "$INSTDIR\LiveCollabManager.exe"
+SectionEnd
 
 ; ---------------- custom Unity page ----------------
 Function UnityPageCreate

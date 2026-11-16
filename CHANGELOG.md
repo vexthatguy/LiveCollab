@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.2] - 2026-11-16
+
+- Template injection now runs **before** shortcut creation, marks each template
+  with a `.installed-version` file, and **skips templates that are already up
+  to date** — reinstalls are near-instant.
+- Installer prints a line per template ("Installing LiveCollab into template:
+  …"), so the progress page never looks frozen again.
+
 ## [1.0.1] - 2026-11-16
 
 Hotfix release (installer reliability):
