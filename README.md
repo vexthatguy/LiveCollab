@@ -228,10 +228,85 @@ scene access can create/delete/modify objects in your project.
 
 ## Roadmap
 
+### In the near term (Unity)
+
 - [ ] Component property sync (Inspector values)
 - [ ] Join-code routing relay for easy internet joins (no port forwarding)
 - [ ] Prefab-aware creation
 - [ ] Ping/quality-based adaptive auto-tuning
+
+### Beyond Unity Editor — the larger vision
+
+LiveCollab is designed as a **general real-time collaboration platform**, not
+just a Unity tool. The core machinery is already engine-agnostic:
+
+- The **companion relay** (a small standalone process) is just a network
+  service: hosts a session, authenticates join codes, forwards live deltas,
+  and broadcasts discovery. It already has no Unity dependency.
+- The **protocol** (join code → welcome → scene/diff/presence messages) is a
+  simple JSON-over-TCP format that any tool can speak.
+- The **collaboration model** — an authoritative host, guests joining by code,
+  floating presence markers, and live state sync — generalizes to any editor.
+
+Planned targets beyond Unity:
+
+- [ ] **Other engines & editors** — Godot, Unreal, Blender, and code editors
+      (VS Code / JetBrains), each via a small adapter that maps that tool's
+      document/state API onto the LiveCollab protocol.
+- [ ] **Generic live file/folder collaboration** — share any folder as a
+      session; collaborators see each other's cursors and edits in real time.
+- [ ] **Talking devices** — the relay already speaks TCP; mobile/web clients
+      can join a session to watch or manipulate shared state.
+- [ ] **Public relay service** — hosted join codes so internet sessions work
+      without port forwarding (for every platform).
+
+This is a long game — the current release is the Unity chapter. The protocol,
+relay, and installer tooling are deliberately structured so future adapters
+can be added without reworking what exists.
+
+## Contributing
+
+LiveCollab is open source (MIT) and **community contributions are welcome** —
+including adapters for other tools, protocol improvements, installers for more
+platforms, and documentation.
+
+### Repository layout
+
+| Path | What lives there |
+|------|------------------|
+| `Editor/LiveCollab/` | The Unity package: UI, scene mirror, sessions, companion launcher |
+| `Tools~/livecollab_host.py` | The standalone companion/relay (pure Python stdlib) |
+| `Tools~/install_*` | Cross-platform installer scripts |
+| `.github/workflows/` | CI: builds Windows/macOS/Linux installers on tag pushes |
+| `Tools~/LiveCollab.nsi` | Windows NSIS installer source |
+
+### Development setup — which IDE?
+
+**For Unity (C#) work:**
+
+- **Visual Studio Community** (Windows, free) with the *Unity* workload — the
+  simplest, best-integrated choice.
+- **JetBrains Rider** — excellent Unity support; free for non-commercial use.
+- **VS Code** + the *C# Dev Kit* and *Unity* extensions — lightweight, cross-
+  platform, works on Windows/macOS/Linux.
+
+You don't need a .NET SDK installed separately — Unity compiles the package.
+
+**For the companion/installer work (Python, NSIS, shell):**
+
+- **VS Code** (with the Python extension) or **PyCharm** for Python.
+- NSIS scripts edit fine in any text editor (VS Code gives syntax highlighting
+  via the NSIS extension).
+
+**Recommended workflow:**
+
+```text
+1. Fork the repo (or request write access).
+2. Open the repo in your IDE; load the Unity package into a scratch project
+   to test editor behavior.
+3. For companion changes: run Tools~/livecollab_host.py directly.
+4. Push a branch and open a pull request — CI builds installers for you.
+```
 
 ## License
 
