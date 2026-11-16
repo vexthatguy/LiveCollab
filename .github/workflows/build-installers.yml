@@ -38,7 +38,9 @@ jobs:
           Expand-Archive nsis.zip -DestinationPath .
 
       - name: Compile installer
-        run: .\nsis-3.11\makensis.exe LiveCollab.nsi
+        run: |
+          New-Item -ItemType Directory -Force release | Out-Null
+          .\nsis-3.11\makensis.exe LiveCollab.nsi
         working-directory: Tools~
 
       - name: Upload artifact
@@ -72,6 +74,7 @@ jobs:
       - name: Assemble DMG
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p release
           rm -rf build/dmg && mkdir -p build/dmg/LiveCollab
           cp Tools~/install_macos.command build/dmg/LiveCollab/install.command
           cp -R build/stage/livecollab build/dmg/LiveCollab/
@@ -111,6 +114,7 @@ jobs:
       - name: Assemble tarball
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p release
           rm -rf build/bundle && mkdir -p build/bundle/LiveCollab
           cp Tools~/install_linux.sh build/bundle/LiveCollab/install.sh
           cp -R build/stage/livecollab build/bundle/LiveCollab/
