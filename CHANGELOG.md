@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.1] - 2026-11-16
+
+Hotfix release (installer reliability):
+
+- Old-version cleanup no longer waits on the previous installer's uninstaller
+  (that could hang the wizard when the child process stalled). It now removes
+  the stale install directory directly, quickly.
+- The install page now shows each file as it is written (no more frozen-
+  looking progress) so you can always see what's happening.
+
 ## [1.0.0] - 2026-11-16
 
 Stable release. This is the version to build a game with a friend on.

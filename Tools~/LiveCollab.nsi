@@ -6,9 +6,10 @@ Unicode true
 RequestExecutionLevel admin
 SetCompressor /SOLID lzma
 SetCompressorDictSize 64
+ShowInstDetails show
 
 !define APPNAME "LiveCollab"
-!define VERSION "1.0.0"
+!define VERSION "1.0.1"
 !define PUBLISHER "LiveCollab contributors"
 !define URL "https://github.com/vexthatguy/LiveCollab"
 !define REGUNINST "Software\Microsoft\Windows\CurrentVersion\Uninstall\LiveCollab"
@@ -45,6 +46,7 @@ InstallDirRegKey HKLM "${REGUNINST}" "InstallLocation"
 Page custom UnityPageCreate UnityPageLeave
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
+!define MUI_INSTFILESPAGE_SHOWCHANGESONLY
 !insertmacro MUI_PAGE_FINISH
 
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -76,17 +78,17 @@ LangString TEXT_UNITY_NONE ${LANG_ENGLISH} "No Unity installation was detected. 
 
 Section -CleanupOld
   ; Remove an older LiveCollab install (same app) before installing this version.
-  ReadRegStr $0 HKLM "${REGUNINST}" "UninstallString"
-  ReadRegStr $1 HKLM "${REGUNINST}" "InstallLocation"
+  ; Plain recursive removal - does NOT wait on the old uninstaller (that could
+  ; hang the wizard if the child process stalls).
+  ReadRegStr $0 HKLM "${REGUNINST}" "InstallLocation"
   StrCmp $0 "" done
-  StrCmp $1 "" tryRun
-  ; run the old uninstaller silently if it still exists
-  ${If} ${FileExists} "$1\Uninstall.exe"
-    ExecWait '"$1\Uninstall.exe" /S _?=$1'
-    Goto done
+  StrCmp $0 $INSTDIR same
+  ${If} ${FileExists} "$0\Uninstall.exe"
+    RMDir /r "$0"
   ${EndIf}
-  tryRun:
-  ExecWait '"$0" /S'
+  Goto done
+  same:
+  ; target dir equals the new install dir - just overwrite in place
   done:
 SectionEnd
 
