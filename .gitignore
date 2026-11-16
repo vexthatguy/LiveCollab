@@ -51,3 +51,6 @@ dist/
 *.spec
 __pycache__/
 *.pyc
+
+# --- Installer output (binaries ship via GitHub Releases) ---
+release/

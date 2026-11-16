@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.0-beta.1] - 2026-11-16
+
+First **beta release** — ships as a Windows installer (NSIS):
+
+- `LiveCollab-Setup-0.2.0-beta.1.exe`
+  - Installs the full Unity package, the standalone companion host
+    (`LiveCollabHost.exe`, prebuilt), the Python scripts, and an offline
+    user guide.
+  - Auto-detects Unity installations (registry + Unity Hub default folders);
+    if none is found you can browse to your Unity folder manually.
+  - Optional: installs the package directly into a chosen Unity project's
+    `Packages/com.livecollab.editor`.
+  - Standard uninstaller, Start Menu shortcuts, desktop shortcut option.
+
 ## [0.2.0] - 2026-11-16
 
 - **Standalone host companion** (`Tools~/livecollab_host.py`, pure Python stdlib):
