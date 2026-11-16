@@ -34,6 +34,19 @@ def copy_tree(src: pathlib.Path, dst: pathlib.Path) -> None:
         raise FileNotFoundError(src)
 
 
+def pick_newest(*paths):
+    best = None
+    best_mtime = -1.0
+    for p in paths:
+        try:
+            if p.exists() and p.stat().st_mtime > best_mtime:
+                best = p
+                best_mtime = p.stat().st_mtime
+        except OSError:
+            continue
+    return best
+
+
 def main() -> int:
     STAGE.mkdir(parents=True, exist_ok=True)
     PAYLOAD.mkdir(parents=True, exist_ok=True)
@@ -48,17 +61,19 @@ def main() -> int:
     # --- companion script ---
     copy_tree(ROOT / "Tools~" / "livecollab_host.py", PAYLOAD / "livecollab_host.py")
 
-    # --- optional prebuilt companion binary (used by CI) ---
-    exe = ROOT / "dist" / "LiveCollabHost.exe"
-    if exe.exists():
+    # --- prebuilt companion binary (newest of repo dist / Tools~ dist) ---
+    exe = pick_newest(ROOT / "dist" / "LiveCollabHost.exe",
+                      ROOT / "Tools~" / "dist" / "LiveCollabHost.exe")
+    if exe:
         copy_tree(exe, STAGE / "LiveCollabHost.exe")
     uni = ROOT / "dist" / "livecollab_host"
     if uni.exists():
         copy_tree(uni, PAYLOAD / "livecollab_host")
 
-    # --- optional prebuilt manager app (Windows installer) ---
-    mgr = ROOT / "dist" / "LiveCollabManager.exe"
-    if mgr.exists():
+    # --- prebuilt manager app (Windows installer) ---
+    mgr = pick_newest(ROOT / "dist" / "LiveCollabManager.exe",
+                      ROOT / "Tools~" / "dist" / "LiveCollabManager.exe")
+    if mgr:
         copy_tree(mgr, STAGE / "LiveCollabManager.exe")
 
     # --- offline guide (Windows installer) ---

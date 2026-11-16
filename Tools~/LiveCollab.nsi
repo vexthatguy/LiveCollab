@@ -9,7 +9,7 @@ SetCompressorDictSize 64
 ShowInstDetails show
 
 !define APPNAME "LiveCollab"
-!define VERSION "1.0.2"
+!define VERSION "1.0.3"
 !define PUBLISHER "LiveCollab contributors"
 !define URL "https://github.com/vexthatguy/LiveCollab"
 !define REGUNINST "Software\Microsoft\Windows\CurrentVersion\Uninstall\LiveCollab"
@@ -129,16 +129,9 @@ Section "-Core" SecCore
   WriteRegStr HKLM "${REGUNINST}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
   WriteRegDWORD HKLM "${REGUNINST}" "NoModify" 1
   WriteRegDWORD HKLM "${REGUNINST}" "NoRepair" 1
-
-  ; shortcuts
-  CreateDirectory "$SMPROGRAMS\${APPNAME}"
-  CreateShortCut "$SMPROGRAMS\${APPNAME}\LiveCollab Manager.lnk" "$INSTDIR\LiveCollabManager.exe"
-  CreateShortCut "$SMPROGRAMS\${APPNAME}\LiveCollab User Guide.lnk" "$INSTDIR\livecollab_guide.html"
-  CreateShortCut "$SMPROGRAMS\${APPNAME}\LiveCollab Homepage.lnk" "${URL}"
-  CreateShortCut "$SMPROGRAMS\${APPNAME}\Uninstall LiveCollab.lnk" "$INSTDIR\Uninstall.exe"
 SectionEnd
 
-Section "Install package into a Unity project" SecProject
+Section /o "Install package into a Unity project" SecProject
   ${If} $ProjectInstall == 1
     ${IfNot} $ProjectPath == ""
       CreateDirectory "$ProjectPath\Packages\com.livecollab.editor"
@@ -147,7 +140,7 @@ Section "Install package into a Unity project" SecProject
   ${EndIf}
 SectionEnd
 
-Section "Enable LiveCollab in new Unity projects" SecTemplates
+Section /o "Enable LiveCollab in new Unity projects" SecTemplates
   ; copies the package into the Unity project templates, so every future
   ; project created from those templates already contains LiveCollab.
   ${If} $FoundList == ""
@@ -201,7 +194,13 @@ Function InstallTemplates
 FunctionEnd
 
 Section "Desktop shortcut" SecDesktop
-  CreateShortCut "$DESKTOP\LiveCollab Manager.lnk" "$INSTDIR\LiveCollabManager.exe"
+  CreateShortCut "$DESKTOP\LiveCollab Manager.lnk" "$INSTDIR\LiveCollabManager.exe" "" "$INSTDIR\livecollab_icon.ico" 0
+SectionEnd
+
+Section "Start menu shortcuts" SecStartMenu
+  CreateDirectory "$SMPROGRAMS\${APPNAME}"
+  CreateShortCut "$SMPROGRAMS\${APPNAME}\LiveCollab Manager.lnk" "$INSTDIR\LiveCollabManager.exe" "" "$INSTDIR\livecollab_icon.ico" 0
+  CreateShortCut "$SMPROGRAMS\${APPNAME}\Uninstall LiveCollab.lnk" "$INSTDIR\Uninstall.exe" "" "$INSTDIR\livecollab_icon.ico" 0
 SectionEnd
 
 ; ---------------- custom Unity page ----------------
@@ -348,6 +347,15 @@ Function .onInit
 
   ; 3) pick the highest installed version
   Call PickBestUnity
+
+  ; 4) /QUICK => minimal install (skip all optional sections)
+  ${GetOptions} $CMDLINE "/QUICK" $R0
+  ${IfNot} ${Errors}
+    SectionSetFlags 2 0
+    SectionSetFlags 3 0
+    SectionSetFlags 4 0
+    SectionSetFlags 5 0
+  ${EndIf}
 FunctionEnd
 
 Function DetectUnityReg

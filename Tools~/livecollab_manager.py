@@ -23,20 +23,95 @@ ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 
 def here_dir():
-    return os.path.dirname(os.path.abspath(sys.argv[0]))
+    a0 = sys.argv[0]
+    if a0 and os.path.basename(a0) not in ("-c", "") and os.path.exists(a0):
+        return os.path.dirname(os.path.abspath(a0))
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def _registry_install_locations():
+    """Best-effort: find the LiveCollab install dir from the registry."""
+    paths = []
+    if os.name != "nt":
+        return paths
+    import winreg
+    key_path = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\LiveCollab"
+    for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+        try:
+            with winreg.OpenKey(hive, key_path) as k:
+                val, _ = winreg.QueryValueEx(k, "InstallLocation")
+                if val:
+                    paths.append(val)
+        except OSError:
+            continue
+    return paths
+
+
+def candidate_dirs():
+    dirs = [here_dir(), os.path.dirname(here_dir())]
+    dirs += _registry_install_locations()
+    seen, out = set(), []
+    for d in dirs:
+        if not d:
+            continue
+        d = os.path.abspath(d)
+        if d in seen:
+            continue
+        seen.add(d)
+        out.append(d)
+    return out
 
 
 def host_binary():
-    """Prefer the compiled binary next to us, else the python script."""
-    d = here_dir()
-    for name in ("livecollab_host.exe", "livecollab_host"):
-        full = os.path.join(d, name)
-        if os.path.exists(full):
+    """Prefer a saved manual location, then the compiled binary, then the
+    python script. Searches are case-insensitive (filesystem-safe)."""
+    # 1) remember a manually located host
+    saved = _load_saved_host()
+    if saved and os.path.exists(saved):
+        return saved
+
+    wanted = {n.lower(): n for n in ("livecollab_host.exe", "livecollab_host", "livecollab_host.py")}
+    for d in candidate_dirs():
+        try:
+            entries = os.listdir(d)
+        except OSError:
+            continue
+        for entry in entries:
+            hit = wanted.get(entry.lower())
+            if hit is None:
+                continue
+            full = os.path.join(d, entry)
+            if hit.endswith(".py"):
+                if getattr(sys, "frozen", False):
+                    continue  # frozen exe cannot host python child scripts
+                return [sys.executable, full]
             return full
-    py = os.path.join(d, "livecollab_host.py")
-    if os.path.exists(py):
-        return [sys.executable, py]
     return None
+
+
+CONFIG_NAME = "manager_config.json"
+
+
+def _config_path():
+    return os.path.join(here_dir(), CONFIG_NAME)
+
+
+def _load_saved_host():
+    try:
+        import json
+        with open(_config_path(), "r", encoding="utf-8") as f:
+            return json.load(f).get("host_path", "")
+    except Exception:
+        return ""
+
+
+def _save_host(path):
+    try:
+        import json
+        with open(_config_path(), "w", encoding="utf-8") as f:
+            json.dump({"host_path": path}, f)
+    except Exception:
+        pass
 
 
 def local_ip():
@@ -108,10 +183,25 @@ class Manager:
         links.pack(fill="x", padx=10, pady=(0, 8))
         tk.Button(links, text="Open User Guide", command=self.open_guide).pack(side="left")
         tk.Button(links, text="GitHub", command=self.open_github).pack(side="left", padx=(8, 0))
+        tk.Button(links, text="Locate host...", command=self.locate_host).pack(side="left", padx=(8, 0))
         tk.Button(links, text="Close", command=self.root.destroy).pack(side="right")
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         self._log("Ready. Press Start Host to begin.\n")
+
+    def locate_host(self):
+        from tkinter import filedialog
+        path = filedialog.askopenfilename(
+            title="Locate the LiveCollab companion host",
+            filetypes=[("Companion host", "*.exe"), ("Python script", "*.py"), ("All files", "*.*")])
+        if not path:
+            return
+        name = os.path.basename(path).lower()
+        if name not in ("livecollab_host.exe", "livecollab_host", "livecollab_host.py"):
+            messagebox.showwarning("LiveCollab", "That doesn't look like a LiveCollab host file.")
+            return
+        _save_host(path)
+        self._log("Host located: %s\n" % path)
 
     # ---------- host control ----------
     def start_host(self):
@@ -128,8 +218,12 @@ class Manager:
 
         binary = host_binary()
         if binary is None:
-            messagebox.showerror("LiveCollab",
-                                 "Companion host not found next to this app.")
+            searched = "\n".join("  - " + d for d in candidate_dirs())
+            messagebox.showerror(
+                "LiveCollab",
+                "Companion host not found. Checked:\n" + searched +
+                "\n\nUse 'Locate host...' to point to livecollab_host.exe, or " +
+                "re-run the LiveCollab installer.")
             return
 
         args = list(binary) + ["--port", str(port), "--udp", "9595",

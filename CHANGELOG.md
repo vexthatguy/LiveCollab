@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.3] - 2026-11-16
+
+- **Quick, minimal install by default**: Start Menu now only gets the Manager
+  + uninstall shortcuts (guide/homepage are inside the Manager). "Enable in
+  new Unity projects" and "Install into a project" are opt-in now.
+- New `/QUICK` silent flag skips every optional component:
+  `LiveCollab-Setup-1.0.3.exe /S /QUICK` — installs in seconds.
+- The default install is now fast: core files + Manager + one desktop
+  shortcut, no template copying unless you choose it.
+
 ## [1.0.2] - 2026-11-16
 
 - Template injection now runs **before** shortcut creation, marks each template
